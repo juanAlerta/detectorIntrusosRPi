@@ -48,7 +48,7 @@ def capture(path: Path) -> bool:
             "--device", DEVICE,
             "--resolution", RESOLUTION,
             "--no-banner",
-            "--skip", "2",
+            "--skip", "1",
             "--quiet",
             str(path),
         ],
