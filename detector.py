@@ -131,7 +131,7 @@ async def main() -> None:
                     if cooldown > 0:
                         cooldown -= INTERVAL
 
-            prev_frame = curr_frame
+                prev_frame = curr_frame
 
             except KeyboardInterrupt:
                 log.info("Detenido por el usuario.")
