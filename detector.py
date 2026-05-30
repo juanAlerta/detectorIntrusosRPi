@@ -18,7 +18,7 @@ import telegram
 
 load_dotenv('/home/pi/.env')
 
-TOKEN        = os.getenv("TELEGRAM_TOKEN")
+TOKEN        = os.getenv("TELEGRAM_TOKEN2")
 CHAT_ID      = int(os.getenv("TELEGRAM_CHAT_ID"))
 DEVICE       = os.getenv("CAMERA_DEVICE", "/dev/video0")
 RESOLUTION   = os.getenv("CAPTURE_RESOLUTION", "320x240")
