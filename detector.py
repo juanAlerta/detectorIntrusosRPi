@@ -105,8 +105,8 @@ async def main() -> None:
             raise SystemExit(1)
 
         prev_frame = None
-        cooldown   = 0
-        COOLDOWN_S = 30
+        #cooldown   = 0
+        #COOLDOWN_S = 30
 
         while True:
             try:
@@ -119,17 +119,9 @@ async def main() -> None:
 
                 if prev_frame is not None:
                     if detect_motion(prev_frame, curr_frame):
-                        if cooldown <= 0:
-                            log.info("¡Movimiento detectado!")
-                            shutil.copy(SNAP_PATH, ALERT_PATH)
-                            await send_alert(bot, ALERT_PATH)
-                            cooldown = COOLDOWN_S
-                        else:
-                            log.debug("Movimiento detectado pero en cooldown (%ds restantes)", cooldown)
-
-                    # El cooldown baja siempre, haya o no movimiento
-                    if cooldown > 0:
-                        cooldown -= INTERVAL
+                        log.info("¡Movimiento detectado!")
+                        shutil.copy(SNAP_PATH, ALERT_PATH)
+                        await send_alert(bot, ALERT_PATH)
 
                 prev_frame = curr_frame
 
