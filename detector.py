@@ -118,15 +118,20 @@ async def main() -> None:
                 curr_frame = frame_to_array(SNAP_PATH)
 
                 if prev_frame is not None:
-                    if cooldown <= 0 and detect_motion(prev_frame, curr_frame):
-                        log.info("¡Movimiento detectado!")
-                        shutil.copy(SNAP_PATH, ALERT_PATH)
-                        await send_alert(bot, ALERT_PATH)
-                        cooldown = COOLDOWN_S
-                    elif cooldown > 0:
+                    if detect_motion(prev_frame, curr_frame):
+                        if cooldown <= 0:
+                            log.info("¡Movimiento detectado!")
+                            shutil.copy(SNAP_PATH, ALERT_PATH)
+                            await send_alert(bot, ALERT_PATH)
+                            cooldown = COOLDOWN_S
+                        else:
+                            log.debug("Movimiento detectado pero en cooldown (%ds restantes)", cooldown)
+
+                    # El cooldown baja siempre, haya o no movimiento
+                    if cooldown > 0:
                         cooldown -= INTERVAL
 
-                prev_frame = curr_frame
+            prev_frame = curr_frame
 
             except KeyboardInterrupt:
                 log.info("Detenido por el usuario.")
