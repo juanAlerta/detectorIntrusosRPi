@@ -32,7 +32,7 @@ SNAP_PATH  = Path("/tmp/intrusos_snap.jpg")
 ALERT_PATH = Path("/tmp/intrusos_alert.jpg")
 
 logging.basicConfig(
-    level=logging.INFO,
+    level=logging.DEBUG,
     format="%(asctime)s [%(levelname)s] %(message)s",
     datefmt="%Y-%m-%d %H:%M:%S",
 )
