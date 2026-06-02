@@ -21,7 +21,10 @@ import telegram
 load_dotenv('/home/pi/.env')
 
 TOKEN      = os.getenv("TELEGRAM_TOKEN2")
-CHAT_ID    = int(os.getenv("TELEGRAM_CHAT_ID"))
+CHAT_ID_ENV = os.getenv("TELEGRAM_CHAT_ID")
+# Conversión segura por si la variable no existe en el .env
+CHAT_ID    = int(CHAT_ID_ENV) if CHAT_ID_ENV else None
+
 DEVICE     = os.getenv("CAMERA_DEVICE", "/dev/video0")
 RESOLUTION = os.getenv("CAPTURE_RESOLUTION", "320x240")
 THRESHOLD  = int(os.getenv("MOTION_THRESHOLD", "25"))
@@ -37,6 +40,9 @@ logging.basicConfig(
     datefmt="%Y-%m-%d %H:%M:%S",
 )
 log = logging.getLogger(__name__)
+
+# Silenciamos el logging de la librería HTTP para que no sature el DEBUG con cada conexión
+logging.getLogger("httpx").setLevel(logging.WARNING)
 
 # ── Funciones ─────────────────────────────────────────────────────────────────
 
@@ -92,38 +98,51 @@ async def send_alert(bot: telegram.Bot, image_path: Path) -> None:
 # ── Bucle principal ────────────────────────────────────────────────────────────
 
 async def main() -> None:
-    # Captura el frame de referencia al arrancar
-    log.info("Capturando frame de referencia...")
-    await asyncio.sleep(3)  # espera a que la cámara se estabilice
-    while not capture(SNAP_PATH):
-        log.warning("Fallo al capturar referencia, reintentando...")
-        await asyncio.sleep(2)
-    reference_frame = frame_to_array(SNAP_PATH)
-    log.info("Frame de referencia capturado. Vigilando...")
-    await bot.send_message(chat_id=CHAT_ID, text="📸 Referencia capturada. Vigilando la puerta.")
+    if not TOKEN or not CHAT_ID:
+        log.error("Faltan configurar las credenciales TELEGRAM_TOKEN2 o TELEGRAM_CHAT_ID en el .env")
+        return
 
-    while True:
+    # SOLUCIÓN: Inicializamos el objeto 'bot' de forma asíncrona y segura
+    async with telegram.Bot(token=TOKEN) as bot:
+        
+        # Captura el frame de referencia al arrancar
+        log.info("Capturando frame de referencia...")
+        await asyncio.sleep(3)  # espera a que la cámara se estabilice
+        
+        while not capture(SNAP_PATH):
+            log.warning("Fallo al capturar referencia, reintentando...")
+            await asyncio.sleep(2)
+            
+        reference_frame = frame_to_array(SNAP_PATH)
+        log.info("Frame de referencia capturado. Vigilando...")
+        
         try:
-            if not capture(SNAP_PATH):
-                log.warning("Fallo al capturar frame, reintentando...")
-                await asyncio.sleep(INTERVAL)
-                continue
-
-            curr_frame = frame_to_array(SNAP_PATH)
-
-            if detect_motion(reference_frame, curr_frame):
-                log.info("¡Movimiento detectado!")
-                shutil.copy(SNAP_PATH, ALERT_PATH)
-                await send_alert(bot, ALERT_PATH)
-
-        except KeyboardInterrupt:
-            log.info("Detenido por el usuario.")
-            break
+            await bot.send_message(chat_id=CHAT_ID, text="📸 Referencia capturada. Vigilando la puerta.")
         except Exception as e:
-            log.error("Error inesperado: %s", e)
-            await asyncio.sleep(5)
+            log.error("Error al enviar mensaje de inicio: %s", e)
 
-        await asyncio.sleep(INTERVAL)
+        while True:
+            try:
+                if not capture(SNAP_PATH):
+                    log.warning("Fallo al capturar frame, reintentando...")
+                    await asyncio.sleep(INTERVAL)
+                    continue
+
+                curr_frame = frame_to_array(SNAP_PATH)
+
+                if detect_motion(reference_frame, curr_frame):
+                    log.info("¡Movimiento detectado!")
+                    shutil.copy(SNAP_PATH, ALERT_PATH)
+                    await send_alert(bot, ALERT_PATH)
+
+            except KeyboardInterrupt:
+                log.info("Detenido por el usuario.")
+                break
+            except Exception as e:
+                log.error("Error inesperado: %s", e)
+                await asyncio.sleep(5)
+
+            await asyncio.sleep(INTERVAL)
 
 
 if __name__ == "__main__":
