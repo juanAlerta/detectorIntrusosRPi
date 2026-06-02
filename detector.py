@@ -92,47 +92,38 @@ async def send_alert(bot: telegram.Bot, image_path: Path) -> None:
 # ── Bucle principal ────────────────────────────────────────────────────────────
 
 async def main() -> None:
-    log.info("Iniciando DetectorIntrusos...")
-    bot = telegram.Bot(token=TOKEN)
+    # Captura el frame de referencia al arrancar
+    log.info("Capturando frame de referencia...")
+    await asyncio.sleep(3)  # espera a que la cámara se estabilice
+    while not capture(SNAP_PATH):
+        log.warning("Fallo al capturar referencia, reintentando...")
+        await asyncio.sleep(2)
+    reference_frame = frame_to_array(SNAP_PATH)
+    log.info("Frame de referencia capturado. Vigilando...")
+    await bot.send_message(chat_id=CHAT_ID, text="📸 Referencia capturada. Vigilando la puerta.")
 
-    async with bot:
+    while True:
         try:
-            me = await bot.get_me()
-            log.info("Bot conectado: @%s", me.username)
-            await bot.send_message(chat_id=CHAT_ID, text="✅ DetectorIntrusos activo y vigilando.")
-        except telegram.error.TelegramError as e:
-            log.error("No se pudo conectar con Telegram: %s", e)
-            raise SystemExit(1)
+            if not capture(SNAP_PATH):
+                log.warning("Fallo al capturar frame, reintentando...")
+                await asyncio.sleep(INTERVAL)
+                continue
 
-        prev_frame = None
-        #cooldown   = 0
-        #COOLDOWN_S = 30
+            curr_frame = frame_to_array(SNAP_PATH)
 
-        while True:
-            try:
-                if not capture(SNAP_PATH):
-                    log.warning("Fallo al capturar frame, reintentando...")
-                    await asyncio.sleep(INTERVAL)
-                    continue
+            if detect_motion(reference_frame, curr_frame):
+                log.info("¡Movimiento detectado!")
+                shutil.copy(SNAP_PATH, ALERT_PATH)
+                await send_alert(bot, ALERT_PATH)
 
-                curr_frame = frame_to_array(SNAP_PATH)
+        except KeyboardInterrupt:
+            log.info("Detenido por el usuario.")
+            break
+        except Exception as e:
+            log.error("Error inesperado: %s", e)
+            await asyncio.sleep(5)
 
-                if prev_frame is not None:
-                    if detect_motion(prev_frame, curr_frame):
-                        log.info("¡Movimiento detectado!")
-                        shutil.copy(SNAP_PATH, ALERT_PATH)
-                        await send_alert(bot, ALERT_PATH)
-
-                prev_frame = curr_frame
-
-            except KeyboardInterrupt:
-                log.info("Detenido por el usuario.")
-                break
-            except Exception as e:
-                log.error("Error inesperado: %s", e)
-                await asyncio.sleep(5)
-
-            await asyncio.sleep(INTERVAL)
+        await asyncio.sleep(INTERVAL)
 
 
 if __name__ == "__main__":
